@@ -1,12 +1,14 @@
 module TypedWire
-  ( AsBase64
+  ( AsBase64(..)
   , decAsBase64, encAsBase64
   , Date
   , toStdDate, fromStdDate
   , decDate, encDate
   , Time
+  , toStdTime, fromStdTime
   , decTime, encTime
   , DateTime
+  , toStdDateTime, fromStdDateTime
   , decDateTime, encDateTime
   , encMaybe
   ) where
@@ -23,13 +25,14 @@ module TypedWire
 @docs Date, toStdDate, fromStdDate, decDate, encDate
 
 # Time
-@docs Time, decTime, encTime
+@docs Time, toStdTime, fromStdTime, decTime, encTime
 
 # DateTime
-@docs DateTime, decDateTime, encDateTime
+@docs DateTime, toStdDateTime, fromStdDateTime, decDateTime, encDateTime
 -}
 
 import Date as D
+import Time as T
 import String as S
 import Json.Decode as JD
 import Json.Encode as JE
@@ -91,6 +94,22 @@ encDate (Date str) = JE.string str
 {-| typed wire time primitive -}
 type Time = Time String
 
+{-| convert typed wire time to elm time -}
+toStdTime : Time -> Maybe T.Time
+toStdTime (Time t) =
+    case List.map S.toInt <| S.split ":" t of
+        [Ok h, Ok m, Ok s] ->
+            Just (toFloat h * T.hour + toFloat m * T.minute + toFloat s * T.second)
+        _ -> Nothing
+
+{-| convert elm time to typed wire time -}
+fromStdTime : T.Time -> Time
+fromStdTime t =
+    let secs = floor (T.inSeconds t) |> mk2Digit
+        mins = floor (T.inMinutes t) |> mk2Digit
+        hours = floor (T.inHours t) |> mk2Digit
+    in Time (hours ++ ":" ++ mins ++ ":" ++ secs)
+
 {-| json time decoder -}
 decTime : JD.Decoder Time
 decTime = JD.map Time JD.string
@@ -101,6 +120,24 @@ encTime (Time str) = JE.string str
 
 {-| typed wire datetime primitive -}
 type DateTime = DateTime String
+
+{-| convert typed wire datetime to elm date -}
+toStdDateTime : DateTime -> Maybe D.Date
+toStdDateTime (DateTime dateStr) =
+    case D.fromString dateStr of
+        Err _ -> Nothing
+        Ok val -> Just val
+
+{-| convert elm date to typed wire datetime -}
+fromStdDateTime : D.Date -> Date
+fromStdDateTime d =
+    let y = D.year d |> toString
+        m = D.month d |> monthToInt |> mk2Digit
+        day = D.day d |> mk2Digit
+        h = D.hour d |> mk2Digit
+        min = D.minute d |> mk2Digit
+        sec = D.second d |> mk2Digit
+    in Date <| y ++ "-" ++ m ++ "-" ++ day ++ "T" ++ h ++ ":" ++ m ++ ":" ++ sec
 
 {-| json datetime decoder -}
 decDateTime : JD.Decoder DateTime
@@ -116,3 +153,6 @@ encMaybe f v =
     case v of
         Nothing -> JE.null
         Just a -> f a
+
+mk2Digit : Int -> String
+mk2Digit = toString >> S.padLeft 2 '0'
