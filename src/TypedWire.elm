@@ -105,10 +105,10 @@ toStdTime (Time t) =
 {-| convert elm time to typed wire time -}
 fromStdTime : T.Time -> Time
 fromStdTime t =
-    let secs = floor (T.inSeconds t) |> mk2Digit
-        mins = floor (T.inMinutes t) |> mk2Digit
-        hours = floor (T.inHours t) |> mk2Digit
-    in Time (hours ++ ":" ++ mins ++ ":" ++ secs)
+    let hours = floor (T.inHours t)
+        mins = floor (T.inMinutes t - (toFloat hours * 60))
+        secs = floor (T.inSeconds t - (toFloat mins * 60) - (toFloat hours * 3600))
+    in Time (mk2Digit hours ++ ":" ++ mk2Digit mins ++ ":" ++ mk2Digit secs)
 
 {-| json time decoder -}
 decTime : JD.Decoder Time
